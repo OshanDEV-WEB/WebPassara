@@ -1,0 +1,1580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Rain Watch Pro v1.2</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+:root {
+  --sky: #38bdf8;
+  --sky-dim: rgba(56,189,248,0.15);
+  --sky-glow: rgba(56,189,248,0.35);
+  --emerald: #34d399;
+  --amber: #fbbf24;
+  --rose: #f87171;
+  --violet: #a78bfa;
+  --glass: rgba(8,16,36,0.72);
+  --glass-border: rgba(255,255,255,0.08);
+  --glass-hi: rgba(255,255,255,0.04);
+  --text: #e2e8f0;
+  --muted: #64748b;
+  --bg: #03090f;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* BACKGROUND FX */
+body::before {
+  content:'';
+  position:fixed;
+  inset:0;
+  background:
+    radial-gradient(ellipse 70% 50% at 15% 0%, rgba(56,189,248,0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 85% 100%, rgba(99,102,241,0.10) 0%, transparent 55%),
+    radial-gradient(ellipse 40% 30% at 50% 50%, rgba(16,24,48,0.9) 0%, transparent 80%);
+  pointer-events:none;
+  z-index:0;
+}
+
+/* Rain drops animation */
+.rain-canvas {
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:0;
+  opacity:0.25;
+}
+
+.app {
+  position: relative;
+  z-index: 1;
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+/* GLASS CARD */
+.glass {
+  background: var(--glass);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 4px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+/* ── HEADER ── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 28px;
+  border-radius: 24px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 16px;
+  animation: slideDown 0.5s ease both;
+}
+
+@keyframes slideDown {
+  from { opacity:0; transform: translateY(-16px); }
+  to   { opacity:1; transform: translateY(0); }
+}
+
+.brand { display:flex; align-items:center; gap:14px; }
+
+.brand-icon {
+  width:52px; height:52px;
+  border-radius:16px;
+  background: linear-gradient(135deg, var(--sky) 0%, #6366f1 100%);
+  display:flex; align-items:center; justify-content:center;
+  font-size:22px;
+  box-shadow: 0 0 24px var(--sky-glow);
+  flex-shrink:0;
+}
+
+.brand-text {}
+
+.brand-title {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: -0.5px;
+  line-height:1;
+}
+
+.brand-title span { color: var(--sky); }
+
+.brand-sub {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 3px;
+  letter-spacing: 0.5px;
+}
+
+.header-meta {
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+
+.meta-pill {
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--glass-hi);
+  border: 1px solid var(--glass-border);
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:13px;
+}
+
+.dot {
+  width:7px; height:7px;
+  border-radius:50%;
+  background: var(--emerald);
+  box-shadow: 0 0 8px var(--emerald);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%,100% { opacity:1; }
+  50% { opacity:0.4; }
+}
+
+#clock {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  color: var(--sky);
+  font-size: 15px;
+  letter-spacing: 1px;
+}
+
+.version-badge {
+  font-family: 'Syne', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--sky-dim), rgba(99,102,241,0.15));
+  border: 1px solid rgba(56,189,248,0.25);
+  color: var(--sky);
+  letter-spacing: 1px;
+}
+
+/* ── STAT CARDS ── */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  padding: 22px;
+  border-radius: 22px;
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+  animation: fadeUp 0.5s ease both;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(20px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.stat-card:nth-child(1) { animation-delay:0.1s; }
+.stat-card:nth-child(2) { animation-delay:0.2s; }
+.stat-card:nth-child(3) { animation-delay:0.3s; }
+.stat-card:nth-child(4) { animation-delay:0.4s; }
+
+.stat-top { display:flex; align-items:center; justify-content:space-between; }
+
+.stat-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.stat-icon {
+  width: 40px; height: 40px;
+  border-radius: 12px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:16px;
+}
+
+.stat-value {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 34px;
+  line-height:1;
+  letter-spacing: -1px;
+}
+
+.c-sky { color: var(--sky); }
+.c-green { color: var(--emerald); }
+.c-amber { color: var(--amber); }
+.c-violet { color: var(--violet); }
+.c-rose { color: var(--rose); }
+
+.bg-sky { background: rgba(56,189,248,0.1); }
+.bg-green { background: rgba(52,211,153,0.1); }
+.bg-amber { background: rgba(251,191,36,0.1); }
+.bg-violet { background: rgba(167,139,250,0.1); }
+.bg-rose { background: rgba(248,113,113,0.1); }
+
+.stat-trend {
+  font-size: 12px;
+  color: var(--muted);
+  display:flex;
+  align-items:center;
+  gap:4px;
+}
+
+/* ── MAIN LAYOUT ── */
+.main {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+/* ── CONSOLE ── */
+.console {
+  border-radius: 24px;
+  padding: 26px;
+  animation: fadeUp 0.5s 0.5s ease both;
+}
+
+.section-label {
+  font-family: 'Syne', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  color: var(--sky);
+  margin-bottom: 22px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.section-label::before {
+  content:'';
+  width:18px; height:2px;
+  background: var(--sky);
+  border-radius:2px;
+}
+
+.field { margin-bottom:14px; }
+
+.field label {
+  display:block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 7px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+.field select,
+.field input {
+  width: 100%;
+  padding: 13px 16px;
+  background: rgba(0,8,20,0.6);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  color: var(--text);
+  font-size: 14px;
+  font-family: 'DM Sans', sans-serif;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  -webkit-appearance: none;
+}
+
+.field select:focus,
+.field input:focus {
+  border-color: rgba(56,189,248,0.5);
+  box-shadow: 0 0 0 3px rgba(56,189,248,0.08);
+}
+
+.field select option { background: #0a1628; }
+
+.btn {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 14px;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  transition: all 0.25s;
+  text-transform: uppercase;
+  margin-top: 6px;
+}
+
+.btn:hover { transform: translateY(-2px); }
+.btn:active { transform: translateY(0); }
+
+.btn-primary {
+  background: linear-gradient(135deg, #0ea5e9, #6366f1);
+  color: white;
+  box-shadow: 0 4px 20px rgba(14,165,233,0.3);
+}
+.btn-primary:hover { box-shadow: 0 8px 28px rgba(14,165,233,0.45); }
+
+.btn-ghost {
+  background: var(--glass-hi);
+  color: var(--muted);
+  border: 1px solid var(--glass-border);
+}
+.btn-ghost:hover { color: var(--text); background: rgba(255,255,255,0.07); }
+
+.divider {
+  height: 1px;
+  background: var(--glass-border);
+  margin: 22px 0;
+}
+
+/* Risk indicator */
+.risk-preview {
+  border-radius: 14px;
+  padding: 14px 16px;
+  background: var(--glass-hi);
+  border: 1px solid var(--glass-border);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  font-size: 13px;
+}
+
+.risk-dot {
+  width:10px; height:10px;
+  border-radius:50%;
+  background: var(--emerald);
+  box-shadow: 0 0 8px var(--emerald);
+  margin-right: 8px;
+}
+
+.risk-label { display:flex; align-items:center; }
+
+/* Credit */
+.credit {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--glass-border);
+  text-align:center;
+}
+
+.credit-name {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--sky);
+  letter-spacing: 0.5px;
+}
+
+.credit-role {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+/* ── RIGHT PANEL ── */
+.right {
+  display:flex;
+  flex-direction:column;
+  gap:18px;
+  animation: fadeUp 0.5s 0.6s ease both;
+}
+
+/* Chart */
+.chart-box {
+  border-radius: 24px;
+  padding: 26px;
+}
+
+/* Table */
+.table-box {
+  border-radius: 24px;
+  overflow: hidden;
+}
+
+.table-header {
+  padding: 22px 26px 20px;
+  border-bottom: 1px solid var(--glass-border);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+
+.record-count {
+  font-family: 'Syne', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--glass-hi);
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+}
+
+.table-wrap {
+  overflow: auto;
+  max-height: 420px;
+  -webkit-overflow-scrolling: touch;
+}
+
+table { width:100%; border-collapse:collapse; }
+
+thead {
+  position:sticky;
+  top:0;
+  z-index:2;
+  background: rgba(4,10,24,0.95);
+  backdrop-filter: blur(10px);
+}
+
+th {
+  padding: 14px 18px;
+  text-align:left;
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+td {
+  padding: 15px 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  font-size: 14px;
+}
+
+tr:last-child td { border-bottom: none; }
+
+tr:hover td { background: rgba(255,255,255,0.025); }
+
+.station-cell {
+  display:flex;
+  align-items:center;
+  gap:9px;
+}
+
+.station-dot {
+  width:7px; height:7px;
+  border-radius:50%;
+  flex-shrink:0;
+}
+
+.rain-val {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  color: var(--sky);
+  font-size: 15px;
+}
+
+.badge {
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  font-family: 'Syne', sans-serif;
+}
+
+.badge-safe { background: rgba(52,211,153,0.1); color: var(--emerald); border:1px solid rgba(52,211,153,0.2); }
+.badge-warning { background: rgba(251,191,36,0.1); color: var(--amber); border:1px solid rgba(251,191,36,0.2); }
+.badge-critical { background: rgba(248,113,113,0.1); color: var(--rose); border:1px solid rgba(248,113,113,0.2); }
+
+.time-cell { color: var(--muted); font-size: 12px; }
+
+/* Toast */
+.toast {
+  position:fixed;
+  bottom:24px; right:24px;
+  padding: 14px 22px;
+  border-radius: 16px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index:999;
+  transform: translateY(80px);
+  opacity:0;
+  transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  display:flex;
+  align-items:center;
+  gap:10px;
+  max-width: 320px;
+  background: rgba(8,16,36,0.92);
+}
+
+.toast.show {
+  transform: translateY(0);
+  opacity:1;
+}
+
+.toast-icon { font-size:18px; }
+
+/* ── MOBILE ── */
+@media (max-width: 900px) {
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .main { grid-template-columns: 1fr; }
+  .console { order: -1; }
+}
+
+@media (max-width: 500px) {
+  .header { padding: 16px 18px; }
+  .brand-title { font-size: 18px; }
+  .stats { grid-template-columns: repeat(2, 1fr); gap:12px; }
+  .stat-card { padding: 16px; }
+  .stat-value { font-size: 26px; }
+  .header-meta { gap: 8px; }
+  .meta-pill { padding: 6px 12px; font-size:12px; }
+  .console, .chart-box, .table-box { padding: 18px 16px; }
+  td, th { padding: 12px 14px; }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width:5px; height:5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(56,189,248,0.2); border-radius:99px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(56,189,248,0.4); }
+
+/* ── THEME TOGGLE ── */
+body.light {
+  --sky: #0284c7;
+  --emerald: #059669;
+  --amber: #d97706;
+  --rose: #dc2626;
+  --violet: #7c3aed;
+  --glass: rgba(240,248,255,0.82);
+  --glass-border: rgba(0,0,0,0.09);
+  --glass-hi: rgba(0,0,0,0.04);
+  --text: #0f172a;
+  --muted: #64748b;
+  --bg: #e8f4fb;
+}
+body.light { background: #dbeafe; }
+body.light::before {
+  background:
+    radial-gradient(ellipse 70% 50% at 15% 0%, rgba(14,165,233,0.18) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 85% 100%, rgba(99,102,241,0.12) 0%, transparent 55%);
+}
+body.light input, body.light select {
+  background: rgba(255,255,255,0.8);
+  color: #0f172a;
+}
+body.light input::placeholder { color: #94a3b8; }
+body.light .rain-canvas { opacity: 0.08; }
+
+/* ── EXTRA STATS ROW ── */
+.stats2 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+/* ── SEARCH BAR ── */
+.search-wrap {
+  display:flex;
+  gap:10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.search-input {
+  flex:1;
+  min-width:160px;
+  padding: 10px 16px;
+  background: rgba(0,8,20,0.5);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  color: var(--text);
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+  outline:none;
+  transition: border-color 0.2s;
+}
+body.light .search-input { background: rgba(255,255,255,0.7); }
+.search-input:focus { border-color: rgba(56,189,248,0.5); }
+
+.filter-select {
+  padding: 10px 14px;
+  background: rgba(0,8,20,0.5);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  color: var(--text);
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+  outline: none;
+  cursor:pointer;
+}
+body.light .filter-select { background: rgba(255,255,255,0.7); }
+
+/* ── ALERT BANNER ── */
+.alert-banner {
+  display:none;
+  padding: 14px 22px;
+  border-radius: 18px;
+  margin-bottom: 18px;
+  background: rgba(248,113,113,0.12);
+  border: 1px solid rgba(248,113,113,0.3);
+  color: var(--rose);
+  font-weight: 600;
+  font-size: 14px;
+  align-items:center;
+  gap:12px;
+  animation: shake 0.5s ease;
+}
+.alert-banner.show { display:flex; }
+@keyframes shake {
+  0%,100%{transform:translateX(0)}
+  20%{transform:translateX(-6px)}
+  40%{transform:translateX(6px)}
+  60%{transform:translateX(-4px)}
+  80%{transform:translateX(4px)}
+}
+
+/* ── MAP SECTION ── */
+.map-section {
+  border-radius: 24px;
+  overflow: hidden;
+  margin-bottom: 20px;
+  animation: fadeUp 0.5s 0.7s ease both;
+}
+
+.map-header {
+  padding: 20px 26px 18px;
+  border-bottom: 1px solid var(--glass-border);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:10px;
+}
+
+.map-tabs {
+  display:flex;
+  gap:8px;
+}
+
+.map-tab {
+  padding: 7px 16px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor:pointer;
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  color: var(--muted);
+  transition: all 0.2s;
+}
+.map-tab.active, .map-tab:hover {
+  background: var(--sky-dim);
+  border-color: rgba(56,189,248,0.3);
+  color: var(--sky);
+}
+
+.map-body {
+  position:relative;
+  height: 480px;
+  background: #020c1a;
+}
+
+.map-iframe {
+  width:100%;
+  height:100%;
+  border:none;
+  display:block;
+}
+
+.map-blocked {
+  display:none;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  height:100%;
+  gap:18px;
+  text-align:center;
+  padding: 40px;
+}
+
+.map-blocked-icon {
+  font-size:52px;
+  opacity:0.4;
+}
+
+.map-blocked p {
+  color: var(--muted);
+  font-size: 14px;
+  max-width: 340px;
+  line-height: 1.6;
+}
+
+.map-open-btn {
+  padding: 12px 28px;
+  background: linear-gradient(135deg, #0ea5e9, #6366f1);
+  color:white;
+  border:none;
+  border-radius:14px;
+  font-family:'Syne',sans-serif;
+  font-weight:700;
+  font-size:13px;
+  letter-spacing:1px;
+  cursor:pointer;
+  text-decoration:none;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  box-shadow: 0 4px 20px rgba(14,165,233,0.3);
+  transition: all 0.2s;
+}
+.map-open-btn:hover {
+  transform:translateY(-2px);
+  box-shadow: 0 8px 28px rgba(14,165,233,0.45);
+}
+
+.map-overlay-info {
+  position:absolute;
+  top:14px;
+  right:14px;
+  background: rgba(8,16,36,0.88);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius:14px;
+  padding:12px 16px;
+  font-size:12px;
+  pointer-events:none;
+  z-index:10;
+}
+
+/* ── PAGINATION ── */
+.pagination {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding: 16px;
+  border-top: 1px solid var(--glass-border);
+  flex-wrap:wrap;
+}
+
+.page-btn {
+  width:34px; height:34px;
+  border-radius:10px;
+  border:1px solid var(--glass-border);
+  background: transparent;
+  color: var(--muted);
+  font-family:'Syne',sans-serif;
+  font-size:13px;
+  font-weight:700;
+  cursor:pointer;
+  transition:all 0.2s;
+  display:flex; align-items:center; justify-content:center;
+}
+.page-btn:hover, .page-btn.active {
+  background: var(--sky-dim);
+  border-color: rgba(56,189,248,0.3);
+  color: var(--sky);
+}
+.page-btn:disabled { opacity:0.3; cursor:default; }
+
+.page-info {
+  font-size:12px;
+  color:var(--muted);
+  padding: 0 6px;
+}
+
+/* ── ACTION BUTTONS ── */
+.action-row {
+  display:flex;
+  gap:10px;
+  margin-bottom: 14px;
+  flex-wrap:wrap;
+}
+
+.action-btn {
+  padding: 9px 18px;
+  border-radius:12px;
+  border:1px solid var(--glass-border);
+  background: var(--glass-hi);
+  color: var(--text);
+  font-family:'Syne',sans-serif;
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:0.5px;
+  cursor:pointer;
+  transition:all 0.2s;
+  display:flex;
+  align-items:center;
+  gap:7px;
+}
+.action-btn:hover {
+  background: var(--sky-dim);
+  border-color: rgba(56,189,248,0.3);
+  color: var(--sky);
+}
+
+/* ── THEME BTN ── */
+.theme-btn {
+  padding: 8px 14px;
+  border-radius:999px;
+  border:1px solid var(--glass-border);
+  background: var(--glass-hi);
+  color: var(--muted);
+  font-size:14px;
+  cursor:pointer;
+  transition:all 0.2s;
+}
+.theme-btn:hover { color:var(--sky); border-color:rgba(56,189,248,0.3); }
+
+@media (max-width:900px) {
+  .stats2 { grid-template-columns:repeat(3,1fr); }
+  .map-body { height:340px; }
+}
+@media (max-width:500px) {
+  .stats2 { grid-template-columns:repeat(3,1fr); gap:8px; }
+  .map-body { height:260px; }
+}
+</style>
+</head>
+
+<body>
+
+<canvas class="rain-canvas" id="rainCanvas"></canvas>
+
+<div class="app">
+
+  <!-- HEADER -->
+  <header class="header glass">
+    <div class="brand">
+      <div class="brand-icon">🌧️</div>
+      <div class="brand-text">
+        <div class="brand-title">Rain <span>Watch</span></div>
+        <div class="brand-sub">Smart Rainfall Monitoring System</div>
+      </div>
+    </div>
+
+    <div class="header-meta">
+      <span class="version-badge">v1.2</span>
+      <div class="meta-pill">
+        <span class="dot"></span>
+        <span style="color:var(--emerald);font-weight:600;font-size:12px;">LIVE</span>
+      </div>
+      <div class="meta-pill">
+        <i class="fa-solid fa-clock" style="color:var(--sky);font-size:12px;"></i>
+        <span id="clock">00:00:00</span>
+      </div>
+      <button class="theme-btn" onclick="toggleTheme()" title="Toggle Theme">🌙</button>
+    </div>
+  </header>
+
+  <!-- ALERT BANNER -->
+  <div class="alert-banner" id="alertBanner">
+    <i class="fa-solid fa-triangle-exclamation fa-bounce"></i>
+    <span id="alertMsg">⚠️ CRITICAL rainfall detected! Immediate action required.</span>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats">
+
+    <div class="stat-card glass">
+      <div class="stat-top">
+        <span class="stat-label">Current Rain</span>
+        <div class="stat-icon bg-sky c-sky"><i class="fa-solid fa-cloud-rain"></i></div>
+      </div>
+      <div id="currentRain" class="stat-value c-sky">—</div>
+      <div class="stat-trend"><i class="fa-solid fa-circle-info" style="font-size:10px;"></i> Latest reading</div>
+    </div>
+
+    <div class="stat-card glass">
+      <div class="stat-top">
+        <span class="stat-label">Risk Level</span>
+        <div class="stat-icon bg-green c-green" id="riskIcon"><i class="fa-solid fa-shield-halved"></i></div>
+      </div>
+      <div id="riskText" class="stat-value c-green">SAFE</div>
+      <div class="stat-trend"><i class="fa-solid fa-circle-info" style="font-size:10px;"></i> Current status</div>
+    </div>
+
+    <div class="stat-card glass">
+      <div class="stat-top">
+        <span class="stat-label">Total Records</span>
+        <div class="stat-icon bg-violet c-violet"><i class="fa-solid fa-database"></i></div>
+      </div>
+      <div id="recordCount" class="stat-value c-violet">0</div>
+      <div class="stat-trend"><i class="fa-solid fa-circle-info" style="font-size:10px;"></i> All stations</div>
+    </div>
+
+    <div class="stat-card glass">
+      <div class="stat-top">
+        <span class="stat-label">Total Rainfall</span>
+        <div class="stat-icon bg-amber c-amber"><i class="fa-solid fa-chart-area"></i></div>
+      </div>
+      <div id="totalRain" class="stat-value c-amber">0mm</div>
+      <div class="stat-trend"><i class="fa-solid fa-circle-info" style="font-size:10px;"></i> Combined total</div>
+    </div>
+
+  </div>
+
+  <!-- EXTRA STATS -->
+  <div class="stats2">
+    <div class="stat-card glass" style="animation-delay:0.5s;">
+      <div class="stat-top">
+        <span class="stat-label">Min</span>
+        <div class="stat-icon bg-sky c-sky"><i class="fa-solid fa-arrow-down"></i></div>
+      </div>
+      <div id="minRain" class="stat-value c-sky" style="font-size:26px;">—</div>
+    </div>
+    <div class="stat-card glass" style="animation-delay:0.55s;">
+      <div class="stat-top">
+        <span class="stat-label">Max</span>
+        <div class="stat-icon bg-rose c-rose"><i class="fa-solid fa-arrow-up"></i></div>
+      </div>
+      <div id="maxRain" class="stat-value c-rose" style="font-size:26px;">—</div>
+    </div>
+    <div class="stat-card glass" style="animation-delay:0.6s;">
+      <div class="stat-top">
+        <span class="stat-label">Average</span>
+        <div class="stat-icon bg-violet c-violet"><i class="fa-solid fa-chart-bar"></i></div>
+      </div>
+      <div id="avgRain" class="stat-value c-violet" style="font-size:26px;">—</div>
+    </div>
+  </div>
+
+  <!-- NBRO MAP -->
+  <div class="map-section glass">
+    <div class="map-header">
+      <div class="section-label" style="margin:0;">
+        <i class="fa-solid fa-map-location-dot"></i> &nbsp;NBRO Interactive Rainfall Map
+      </div>
+      <div class="map-tabs">
+        <button class="map-tab active" onclick="showMap('iframe')">🗺️ Live Map</button>
+        <button class="map-tab" onclick="showMap('blocked')">⚠️ If Blocked</button>
+      </div>
+    </div>
+    <div class="map-body">
+      <div id="mapOverlayInfo" class="map-overlay-info">
+        <span style="color:var(--sky);font-weight:700;font-size:11px;">🌐 NBRO · LIVE</span><br>
+        <span style="color:var(--muted);">National Building Research Organisation</span>
+      </div>
+      <div id="mapIframeWrap" style="width:100%;height:100%;">
+        <iframe
+          class="map-iframe"
+          id="mapFrame"
+          src="http://www.rainfall.nbro.gov.lk:8080/mapforweb/all/mapview.aspx"
+          title="NBRO Rainfall Map"
+          allowfullscreen
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+          onload="mapLoaded()"
+          onerror="mapError()">
+        </iframe>
+      </div>
+      <div class="map-blocked" id="mapBlockedView">
+        <div class="map-blocked-icon">🗺️</div>
+        <p>The NBRO map may be blocked by your browser due to security restrictions (HTTP iframe in HTTPS page, or X-Frame-Options).</p>
+        <a class="map-open-btn" href="http://www.rainfall.nbro.gov.lk:8080/mapforweb/all/mapview.aspx" target="_blank" rel="noopener">
+          <i class="fa-solid fa-external-link"></i> Open Map in New Tab
+        </a>
+        <p style="font-size:12px;margin-top:8px;">↑ This opens the official NBRO live rainfall map</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- CONSOLE -->
+    <div class="console glass">
+      <div class="section-label">Data Console</div>
+
+      <div class="field">
+        <label>Monitoring Station</label>
+        <select id="station">
+          <option>Passara</option>
+          <option>Madolsima</option>
+          <option>Arawa</option>
+          <option>Gonamitiyawa</option>
+          <option>Egodawela</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Rainfall (mm)</label>
+        <input id="rainInput" type="number" placeholder="e.g. 45.5" min="0" step="0.1" oninput="updateRiskPreview(this.value)" />
+      </div>
+
+      <div class="risk-preview" id="riskPreview">
+        <div class="risk-label">
+          <div class="risk-dot" id="previewDot"></div>
+          <span id="previewText" style="font-weight:600;">Enter value to preview risk</span>
+        </div>
+        <span style="font-size:11px;color:var(--muted);">RISK</span>
+      </div>
+
+      <button onclick="saveData()" id="saveBtn" class="btn btn-primary" style="margin-top:16px;">
+        <i class="fa-solid fa-satellite-dish" style="margin-right:6px;"></i> Submit Data
+      </button>
+      <button onclick="loadData()" class="btn btn-ghost">
+        <i class="fa-solid fa-rotate" style="margin-right:6px;"></i> Refresh
+      </button>
+
+      <div class="divider"></div>
+
+      <div class="credit">
+        <div class="credit-name">Oshan Dissanayaka</div>
+        <div class="credit-role">Rain Watch Pro · v1.2</div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="right">
+
+      <!-- Chart -->
+      <div class="chart-box glass">
+        <div class="section-label">Rainfall Analytics</div>
+        <canvas id="rainChart" height="120"></canvas>
+      </div>
+
+      <!-- Table -->
+      <div class="table-box glass">
+        <div class="table-header">
+          <div class="section-label" style="margin:0;">Recent Records</div>
+          <span class="record-count" id="tableCount">0 entries</span>
+        </div>
+
+        <!-- Search + Filter + Export -->
+        <div style="padding:16px 20px 0;">
+          <div class="action-row">
+            <button class="action-btn" onclick="exportCSV()">
+              <i class="fa-solid fa-file-csv"></i> Export CSV
+            </button>
+            <button class="action-btn" onclick="exportPDF()">
+              <i class="fa-solid fa-file-pdf"></i> Export PDF
+            </button>
+            <button class="action-btn" onclick="toggleSound()" id="soundBtn">
+              <i class="fa-solid fa-bell"></i> Alert Sound: ON
+            </button>
+          </div>
+          <div class="search-wrap">
+            <input class="search-input" id="searchInput" placeholder="🔍  Search station..." oninput="renderTable()">
+            <select class="filter-select" id="filterRisk" onchange="renderTable()">
+              <option value="">All Risk</option>
+              <option value="SAFE">SAFE</option>
+              <option value="WARNING">WARNING</option>
+              <option value="CRITICAL">CRITICAL</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Station</th>
+                <th>Rainfall</th>
+                <th>Risk</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination" id="paginationWrap"></div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <span class="toast-icon" id="toastIcon">✅</span>
+  <span id="toastMsg">Data saved successfully</span>
+</div>
+
+<script>
+// ─── CONFIG ───
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyezhqvzTzLaJUA4mMNKPiEKNqtoaCzJW6ZP48q7yptO_Avp1Or5dAzRavEwhmppMCv/exec";
+
+let records = [];
+let chart;
+let currentPage = 1;
+const PAGE_SIZE = 10;
+let alertSoundOn = true;
+let lastCritical = false;
+
+// ─── RAIN CANVAS ───
+const canvas = document.getElementById('rainCanvas');
+const ctx2 = canvas.getContext('2d');
+let drops = [];
+
+function initRain() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  drops = Array.from({length:60}, () => ({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    l: Math.random() * 14 + 6,
+    s: Math.random() * 1.5 + 0.8,
+    o: Math.random() * 0.3 + 0.05
+  }));
+}
+
+function drawRain() {
+  ctx2.clearRect(0,0,canvas.width,canvas.height);
+  drops.forEach(d => {
+    ctx2.strokeStyle = `rgba(56,189,248,${d.o})`;
+    ctx2.lineWidth = 0.8;
+    ctx2.beginPath();
+    ctx2.moveTo(d.x, d.y);
+    ctx2.lineTo(d.x - 1, d.y + d.l);
+    ctx2.stroke();
+    d.y += d.s;
+    if(d.y > canvas.height) { d.y = -d.l; d.x = Math.random() * canvas.width; }
+  });
+  requestAnimationFrame(drawRain);
+}
+initRain(); drawRain();
+window.addEventListener('resize', initRain);
+
+// ─── CLOCK ───
+setInterval(() => {
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString();
+}, 1000);
+
+// ─── THEME ───
+function toggleTheme() {
+  const isLight = document.body.classList.toggle('light');
+  document.querySelector('.theme-btn').textContent = isLight ? '☀️' : '🌙';
+}
+
+// ─── MAP ───
+function mapLoaded() {
+  // iframe loaded OK
+}
+function mapError() {
+  showMap('blocked');
+}
+function showMap(mode) {
+  document.getElementById('mapIframeWrap').style.display = mode === 'iframe' ? 'block' : 'none';
+  document.getElementById('mapBlockedView').style.display = mode === 'blocked' ? 'flex' : 'none';
+  document.querySelectorAll('.map-tab').forEach((t,i) => {
+    t.classList.toggle('active', (mode==='iframe' && i===0)||(mode==='blocked' && i===1));
+  });
+}
+
+// Detect if iframe is blocked (HTTP in HTTPS = blocked)
+window.addEventListener('load', () => {
+  const isHttps = location.protocol === 'https:';
+  if(isHttps) { showMap('blocked'); }
+});
+
+// ─── RISK ───
+function calcRisk(val) {
+  const v = parseFloat(val);
+  if(isNaN(v)) return null;
+  if(v > 100) return 'CRITICAL';
+  if(v > 50) return 'WARNING';
+  return 'SAFE';
+}
+
+function updateRiskPreview(val) {
+  const risk = calcRisk(val);
+  const dot = document.getElementById('previewDot');
+  const txt = document.getElementById('previewText');
+  if(!risk) {
+    dot.style.background = 'var(--muted)';
+    dot.style.boxShadow = 'none';
+    txt.textContent = 'Enter value to preview risk';
+    txt.style.color = 'var(--muted)';
+    return;
+  }
+  const map = {
+    SAFE: { bg:'var(--emerald)', color:'var(--emerald)' },
+    WARNING: { bg:'var(--amber)', color:'var(--amber)' },
+    CRITICAL: { bg:'var(--rose)', color:'var(--rose)' }
+  };
+  dot.style.background = map[risk].bg;
+  dot.style.boxShadow = `0 0 8px ${map[risk].bg}`;
+  txt.textContent = risk;
+  txt.style.color = map[risk].color;
+}
+
+// ─── ALERT SOUND ───
+function playAlertSound() {
+  if(!alertSoundOn) return;
+  try {
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    [0,0.15,0.3].forEach(t => {
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      o.connect(g); g.connect(ac.destination);
+      o.frequency.value = 880;
+      o.type = 'sine';
+      g.gain.setValueAtTime(0.4, ac.currentTime + t);
+      g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + t + 0.25);
+      o.start(ac.currentTime + t);
+      o.stop(ac.currentTime + t + 0.25);
+    });
+  } catch(e) {}
+}
+
+function toggleSound() {
+  alertSoundOn = !alertSoundOn;
+  document.getElementById('soundBtn').innerHTML =
+    `<i class="fa-solid fa-bell${alertSoundOn?'':'-slash'}"></i> Alert Sound: ${alertSoundOn?'ON':'OFF'}`;
+}
+
+// ─── TOAST ───
+function showToast(msg, icon='✅', isError=false) {
+  const t = document.getElementById('toast');
+  document.getElementById('toastMsg').textContent = msg;
+  document.getElementById('toastIcon').textContent = icon;
+  t.style.borderColor = isError ? 'rgba(248,113,113,0.25)' : 'rgba(52,211,153,0.25)';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+// ─── LOAD DATA ───
+async function loadData() {
+  try {
+    const res = await fetch(SCRIPT_URL + '?t=' + Date.now());
+    records = await res.json();
+    currentPage = 1;
+    updateUI();
+  } catch(e) {
+    showToast('Failed to load data', '⚠️', true);
+  }
+}
+
+// ─── SAVE DATA ───
+async function saveData() {
+  const station = document.getElementById('station').value;
+  const rain = document.getElementById('rainInput').value;
+  if(!rain) { showToast('Please enter a rainfall value', '⚠️', true); return; }
+
+  const btn = document.getElementById('saveBtn');
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="margin-right:6px;"></i> Saving...';
+  btn.disabled = true;
+
+  const risk = calcRisk(rain);
+  const payload = { station, rainfall: rain, risk, time: new Date().toLocaleString() };
+
+  try {
+    await fetch(SCRIPT_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify(payload)
+    });
+    document.getElementById('rainInput').value = '';
+    updateRiskPreview('');
+    showToast('Data submitted successfully!', '✅');
+    setTimeout(loadData, 1500);
+  } catch(e) {
+    showToast('Save failed. Try again.', '❌', true);
+  } finally {
+    btn.innerHTML = '<i class="fa-solid fa-satellite-dish" style="margin-right:6px;"></i> Submit Data';
+    btn.disabled = false;
+  }
+}
+
+// ─── EXPORT CSV ───
+function exportCSV() {
+  if(!records.length) { showToast('No data to export', '⚠️', true); return; }
+  const rows = [['Station','Rainfall(mm)','Risk','Time'], ...records.map(r => [r[0],r[1],r[2],r[3]])];
+  const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'rainwatch_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  showToast('CSV exported!', '📄');
+}
+
+// ─── EXPORT PDF ───
+function exportPDF() {
+  if(!records.length) { showToast('No data to export', '⚠️', true); return; }
+  const win = window.open('', '_blank');
+  const rows = [...records].reverse().map(r => `
+    <tr>
+      <td>${r[0]}</td><td>${r[1]}mm</td>
+      <td style="color:${r[2]==='CRITICAL'?'#ef4444':r[2]==='WARNING'?'#f59e0b':'#22c55e'};font-weight:700;">${r[2]}</td>
+      <td>${r[3]}</td>
+    </tr>`).join('');
+  win.document.write(`
+    <html><head><title>Rain Watch Report</title>
+    <style>body{font-family:Arial;padding:30px;color:#0f172a;}
+    h1{color:#0284c7;margin-bottom:4px;}
+    p{color:#64748b;font-size:13px;margin-bottom:20px;}
+    table{width:100%;border-collapse:collapse;}
+    th{background:#0ea5e9;color:white;padding:10px;text-align:left;font-size:12px;}
+    td{padding:9px 10px;border-bottom:1px solid #e2e8f0;font-size:13px;}
+    tr:nth-child(even){background:#f8fafc;}
+    </style></head><body>
+    <h1>🌧️ Rain Watch Pro — Rainfall Report</h1>
+    <p>Generated: ${new Date().toLocaleString()} &nbsp;|&nbsp; By: Oshan Dissanayaka &nbsp;|&nbsp; v1.2</p>
+    <table><thead><tr><th>Station</th><th>Rainfall</th><th>Risk</th><th>Time</th></tr></thead>
+    <tbody>${rows}</tbody></table>
+    </body></html>`);
+  win.document.close();
+  win.print();
+  showToast('PDF ready to print!', '🖨️');
+}
+
+// ─── FILTER DATA ───
+function getFiltered() {
+  const q = (document.getElementById('searchInput')?.value || '').toLowerCase();
+  const risk = document.getElementById('filterRisk')?.value || '';
+  return [...records].reverse().filter(r => {
+    const matchQ = !q || r[0].toLowerCase().includes(q);
+    const matchR = !risk || r[2] === risk;
+    return matchQ && matchR;
+  });
+}
+
+// ─── RENDER TABLE + PAGINATION ───
+function renderTable() {
+  const filtered = getFiltered();
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  if(currentPage > totalPages) currentPage = totalPages;
+
+  const pageData = filtered.slice((currentPage-1)*PAGE_SIZE, currentPage*PAGE_SIZE);
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = '';
+
+  const stationColors = {
+    'Passara':'var(--sky)','Madolsima':'var(--violet)',
+    'Arawa':'var(--emerald)','Gonamitiyawa':'var(--amber)','Egodawela':'var(--rose)'
+  };
+
+  if(!pageData.length) {
+    const emptyRow = document.createElement('tr');
+    const emptyTd = document.createElement('td');
+    emptyTd.colSpan = 4;
+    emptyTd.style.cssText = 'text-align:center;color:var(--muted);padding:30px;';
+    emptyTd.textContent = 'No records found';
+    emptyRow.appendChild(emptyTd);
+    tbody.appendChild(emptyRow);
+  } else {
+    pageData.forEach(r => {
+      const bc = r[2]==='WARNING'?'badge-warning':r[2]==='CRITICAL'?'badge-critical':'badge-safe';
+      const dc = stationColors[r[0]] || 'var(--sky)';
+
+      const tr = document.createElement('tr');
+
+      // Station cell
+      const td1 = document.createElement('td');
+      const cell = document.createElement('div');
+      cell.className = 'station-cell';
+      const dot = document.createElement('div');
+      dot.className = 'station-dot';
+      dot.style.cssText = 'background:' + dc + ';box-shadow:0 0 6px ' + dc;
+      const stName = document.createTextNode(r[0]);
+      cell.appendChild(dot);
+      cell.appendChild(stName);
+      td1.appendChild(cell);
+
+      // Rainfall cell
+      const td2 = document.createElement('td');
+      const rainSpan = document.createElement('span');
+      rainSpan.className = 'rain-val';
+      rainSpan.textContent = r[1] + 'mm';
+      td2.appendChild(rainSpan);
+
+      // Risk cell
+      const td3 = document.createElement('td');
+      const badge = document.createElement('span');
+      badge.className = 'badge ' + bc;
+      badge.textContent = r[2];
+      td3.appendChild(badge);
+
+      // Time cell
+      const td4 = document.createElement('td');
+      td4.className = 'time-cell';
+      td4.textContent = r[3];
+
+      tr.appendChild(td1);
+      tr.appendChild(td2);
+      tr.appendChild(td3);
+      tr.appendChild(td4);
+      tbody.appendChild(tr);
+    });
+  }
+
+  document.getElementById('tableCount').textContent = filtered.length + ' entries';
+
+  // Pagination
+  const wrap = document.getElementById('paginationWrap');
+  wrap.innerHTML = '';
+  if(totalPages <= 1) return;
+
+  const prev = document.createElement('button');
+  prev.className = 'page-btn';
+  prev.innerHTML = '‹';
+  prev.disabled = currentPage === 1;
+  prev.onclick = () => { currentPage--; renderTable(); };
+  wrap.appendChild(prev);
+
+  for(let i=1; i<=totalPages; i++) {
+    const b = document.createElement('button');
+    b.className = 'page-btn' + (i===currentPage?' active':'');
+    b.textContent = i;
+    b.onclick = () => { currentPage=i; renderTable(); };
+    wrap.appendChild(b);
+  }
+
+  const next = document.createElement('button');
+  next.className = 'page-btn';
+  next.innerHTML = '›';
+  next.disabled = currentPage === totalPages;
+  next.onclick = () => { currentPage++; renderTable(); };
+  wrap.appendChild(next);
+
+  const info = document.createElement('span');
+  info.className = 'page-info';
+  info.textContent = `Page ${currentPage}/${totalPages}`;
+  wrap.appendChild(info);
+}
+
+// ─── UPDATE UI ───
+function updateUI() {
+  let total = 0, min = Infinity, max = -Infinity;
+
+  records.forEach(r => {
+    const v = parseFloat(r[1] || 0);
+    total += v;
+    if(v < min) min = v;
+    if(v > max) max = v;
+  });
+
+  const avg = records.length ? total / records.length : 0;
+
+  document.getElementById('recordCount').textContent = records.length;
+  document.getElementById('totalRain').textContent = total.toFixed(1) + 'mm';
+  document.getElementById('minRain').textContent = records.length ? min.toFixed(1)+'mm' : '—';
+  document.getElementById('maxRain').textContent = records.length ? max.toFixed(1)+'mm' : '—';
+  document.getElementById('avgRain').textContent = records.length ? avg.toFixed(1)+'mm' : '—';
+
+  if(records.length) {
+    const last = records[records.length - 1];
+    document.getElementById('currentRain').textContent = last[1] + 'mm';
+
+    const risk = last[2];
+    const rt = document.getElementById('riskText');
+    const ri = document.getElementById('riskIcon');
+    rt.textContent = risk;
+    const colorMap = { SAFE:'c-green', WARNING:'c-amber', CRITICAL:'c-rose' };
+    const bgMap   = { SAFE:'bg-green', WARNING:'bg-amber', CRITICAL:'bg-rose' };
+    rt.className  = 'stat-value ' + (colorMap[risk]||'c-green');
+    ri.className  = 'stat-icon ' + (bgMap[risk]||'bg-green') + ' ' + (colorMap[risk]||'c-green');
+
+    // Alert banner & sound for CRITICAL
+    const hasCritical = records.some(r => r[2] === 'CRITICAL');
+    const banner = document.getElementById('alertBanner');
+    if(hasCritical) {
+      const critStation = records.filter(r=>r[2]==='CRITICAL').pop();
+      document.getElementById('alertMsg').textContent =
+        `⚠️ CRITICAL rainfall detected at ${critStation[0]} — ${critStation[1]}mm! Immediate attention required.`;
+      banner.classList.add('show');
+      if(!lastCritical) playAlertSound();
+    } else {
+      banner.classList.remove('show');
+    }
+    lastCritical = hasCritical;
+  }
+
+  renderTable();
+  updateChart();
+}
+
+// ─── CHART ───
+function updateChart() {
+  const el = document.getElementById('rainChart');
+  const latest = records.slice(-10);
+  if(chart) chart.destroy();
+
+  const gradient = el.getContext('2d').createLinearGradient(0, 0, 0, 250);
+  gradient.addColorStop(0, 'rgba(56,189,248,0.25)');
+  gradient.addColorStop(1, 'rgba(56,189,248,0.0)');
+
+  chart = new Chart(el, {
+    type: 'line',
+    data: {
+      labels: latest.map(r => r[0]),
+      datasets: [{
+        label: 'Rainfall (mm)',
+        data: latest.map(r => parseFloat(r[1])),
+        borderColor: '#38bdf8',
+        backgroundColor: gradient,
+        fill: true, tension: 0.45, borderWidth: 2.5,
+        pointRadius: 5, pointBackgroundColor: '#38bdf8',
+        pointBorderColor: '#020617', pointBorderWidth: 2, pointHoverRadius: 7
+      }]
+    },
+    options: {
+      responsive: true,
+      animation: { duration: 600, easing: 'easeInOutQuart' },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(8,16,36,0.95)',
+          borderColor: 'rgba(56,189,248,0.3)',
+          borderWidth: 1,
+          titleColor: '#94a3b8',
+          bodyColor: '#38bdf8',
+          bodyFont: { family: 'Syne', size: 14, weight: '700' },
+          padding: 12, cornerRadius: 12,
+          callbacks: { label: ctx => ' ' + ctx.parsed.y + ' mm' }
+        }
+      },
+      scales: {
+        x: { ticks:{ color:'#475569', font:{size:11} }, grid:{ color:'rgba(255,255,255,0.04)', drawBorder:false } },
+        y: { ticks:{ color:'#475569', font:{size:11}, callback: v => v+'mm' }, grid:{ color:'rgba(255,255,255,0.04)', drawBorder:false } }
+      }
+    }
+  });
+}
+
+// ─── INIT ───
+setInterval(loadData, 10000);
+loadData();
+</script>
+
+</body>
+</html>
